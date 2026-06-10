@@ -12,4 +12,8 @@ public interface PatientRepository extends JpaRepository<Patient, UUID> {
     Optional<Patient> findByUserId(UUID userId);
 
     List<Patient> findByActiveTrue();
+
+    List<Patient> findByOrganizationIdAndActiveTrue(UUID organizationId);
+
+    List<Patient> findAllByOrganizationId(UUID organizationId);
 }

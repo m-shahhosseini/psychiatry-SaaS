@@ -12,4 +12,5 @@ public interface DoctorRepository extends JpaRepository<Doctor, UUID> {
     Optional<Doctor> findByUserId(UUID userId);
 
     List<Doctor> findByActiveTrue();
+    List<Doctor> findByOrganizationIdAndActiveTrue(UUID organizationId);
 }

@@ -11,9 +11,7 @@ import java.util.List;
 @Mapper(componentModel = "spring")
 public interface AppointmentMapper {
 
-    // Entity → Response
     @Mapping(source = "id", target = "appointmentId")
-    @Mapping(source = "status", target = "status")
     AppointmentResponse toResponse(Appointment appointment);
 
     List<AppointmentResponse> toResponseList(List<Appointment> appointments);

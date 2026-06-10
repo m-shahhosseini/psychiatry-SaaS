@@ -7,7 +7,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 
@@ -16,10 +16,10 @@ import java.util.UUID;
 @Table(
         name = "appointments",
         indexes = {
-                @Index(name = "idx_app_org", columnList = "organization_id"),
+                @Index(name = "idx_app_org",    columnList = "organization_id"),
+                @Index(name = "idx_app_doctor",  columnList = "doctor_id"),
                 @Index(name = "idx_app_patient", columnList = "patient_id"),
-                @Index(name = "idx_app_doctor", columnList = "doctor_id"),
-                @Index(name = "idx_app_date", columnList = "appointment_time")
+                @Index(name = "idx_app_start",   columnList = "start_time")
         }
 )
 @Getter
@@ -33,11 +33,15 @@ public class Appointment extends BaseTenantEntity {
     private UUID patientId;
 
     @Column(nullable = false)
-    private UUID slotId; // 🔥 مهم‌ترین تغییر
+    private Instant startTime;
 
     @Column(nullable = false)
-    private LocalDateTime appointmentTime;
+    private Instant endTime;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private AppointmentStatus status;
+
+    @Column(length = 1000)
+    private String notes;
 }

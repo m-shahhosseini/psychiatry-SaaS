@@ -1,14 +1,10 @@
 package com.idea.psychiatry.modules.appointment.dto;
 
+
 import com.idea.psychiatry.modules.appointment.enums.AppointmentStatus;
 
 import java.time.Instant;
-import java.util.UUID;
-
-public record AppointmentResponse(
-        UUID appointmentId,
-        UUID doctorId,
-        UUID patientId,
+public record UpdateAppointmentRequest(
         Instant startTime,
         Instant endTime,
         AppointmentStatus status,

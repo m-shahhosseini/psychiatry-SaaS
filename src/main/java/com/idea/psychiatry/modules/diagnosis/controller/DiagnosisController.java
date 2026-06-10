@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,18 +20,17 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "Diagnosis", description = "Clinical diagnosis management")
 public class DiagnosisController {
+
     private final DiagnosisService service;
 
-    // TODO: organizationId باید از SecurityContext (JWT token) گرفته شود
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Register a new diagnosis for an encounter")
-    public ApiResponse<DiagnosisResponse> create(
-            @Valid @RequestBody CreateDiagnosisRequest request,
-            @RequestHeader("X-Organization-Id") UUID organizationId) {
+    public ApiResponse<DiagnosisResponse> create(@Valid @RequestBody CreateDiagnosisRequest request) {
         return ApiResponse.<DiagnosisResponse>builder()
                 .success(true)
                 .message("Diagnosis created")
-                .data(service.create(request, organizationId))
+                .data(service.create(request))
                 .build();
     }
 

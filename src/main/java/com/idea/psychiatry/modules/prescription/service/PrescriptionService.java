@@ -1,6 +1,7 @@
 package com.idea.psychiatry.modules.prescription.service;
 
 
+import com.idea.psychiatry.modules.auth.security.CurrentUser;
 import com.idea.psychiatry.modules.prescription.dto.*;
 import com.idea.psychiatry.modules.prescription.entity.Prescription;
 import com.idea.psychiatry.modules.prescription.entity.PrescriptionItem;
@@ -20,20 +21,20 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class PrescriptionService {
+
     private final PrescriptionRepository prescriptionRepository;
     private final PrescriptionItemRepository prescriptionItemRepository;
     private final PrescriptionMapper mapper;
     private final PrescriptionRules rules;
 
     @Transactional
-    public PrescriptionResponse create(CreatePrescriptionRequest request, UUID organizationId) {
+    public PrescriptionResponse create(CreatePrescriptionRequest request) {
         rules.validatePatientFileIsOpen(request.patientFileId());
         rules.validateEncounterIsActive(request.encounterId());
         rules.validateHasItems(request.items().size());
 
-        // ذخیره نسخه
         Prescription prescription = new Prescription();
-        prescription.setOrganizationId(organizationId);
+        prescription.setOrganizationId(CurrentUser.getOrganizationId());
         prescription.setPatientFileId(request.patientFileId());
         prescription.setEncounterId(request.encounterId());
         prescription.setPrescriberId(request.prescriberId());
@@ -41,51 +42,45 @@ public class PrescriptionService {
         prescription.setNotes(request.notes());
 
         Prescription saved = prescriptionRepository.save(prescription);
-
-        // ذخیره آیتم‌ها
-        List<PrescriptionItem> items = buildItems(request.items(), saved.getId());
-        prescriptionItemRepository.saveAll(items);
+        prescriptionItemRepository.saveAll(buildItems(request.items(), saved.getId()));
 
         return toFullResponse(saved);
     }
 
     public PrescriptionResponse getById(UUID prescriptionId) {
-        return toFullResponse(findOrThrow(prescriptionId));
+        Prescription prescription = findOrThrow(prescriptionId);
+        CurrentUser.requireSameOrganization(prescription.getOrganizationId());
+        return toFullResponse(prescription);
     }
 
     public List<PrescriptionResponse> getByEncounter(UUID encounterId) {
         return prescriptionRepository.findByEncounterId(encounterId)
-                .stream()
-                .map(this::toFullResponse)
-                .toList();
+                .stream().map(this::toFullResponse).toList();
     }
 
     public List<PrescriptionResponse> getByPatientFile(UUID patientFileId) {
         return prescriptionRepository.findByPatientFileId(patientFileId)
-                .stream()
-                .map(this::toFullResponse)
-                .toList();
+                .stream().map(this::toFullResponse).toList();
     }
 
     @Transactional
     public PrescriptionResponse addItems(UUID prescriptionId, AddItemRequest request) {
         Prescription prescription = findOrThrow(prescriptionId);
+        CurrentUser.requireSameOrganization(prescription.getOrganizationId());
         rules.validateHasItems(request.items().size());
-
-        List<PrescriptionItem> items = buildItems(request.items(), prescriptionId);
-        prescriptionItemRepository.saveAll(items);
-
+        prescriptionItemRepository.saveAll(buildItems(request.items(), prescriptionId));
         return toFullResponse(prescription);
     }
 
     @Transactional
     public void removeItem(UUID prescriptionId, UUID itemId) {
+        Prescription prescription = findOrThrow(prescriptionId);
+        CurrentUser.requireSameOrganization(prescription.getOrganizationId());
+
         PrescriptionItem item = prescriptionItemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("PrescriptionItem not found: " + itemId));
-
         rules.validateItemBelongsToPrescription(item.getPrescriptionId(), prescriptionId);
 
-        // نسخه باید حداقل یک آیتم داشته باشد
         List<PrescriptionItem> remaining = prescriptionItemRepository
                 .findByPrescriptionIdOrderBySortOrder(prescriptionId);
         rules.validateHasItems(remaining.size() - 1);
@@ -114,25 +109,15 @@ public class PrescriptionService {
         }).toList();
     }
 
-    /**
-     * نسخه کامل با آیتم‌هایش را برمی‌گرداند.
-     */
     private PrescriptionResponse toFullResponse(Prescription prescription) {
         List<PrescriptionItemResponse> items = mapper.toItemResponseList(
                 prescriptionItemRepository.findByPrescriptionIdOrderBySortOrder(prescription.getId())
         );
-
         PrescriptionResponse base = mapper.toResponse(prescription);
-
         return new PrescriptionResponse(
-                base.prescriptionId(),
-                base.patientFileId(),
-                base.encounterId(),
-                base.prescriberId(),
-                base.organizationId(),
-                base.prescribedAt(),
-                base.notes(),
-                items
+                base.prescriptionId(), base.patientFileId(), base.encounterId(),
+                base.prescriberId(), base.organizationId(), base.prescribedAt(),
+                base.notes(), items
         );
     }
 }

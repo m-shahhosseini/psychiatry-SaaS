@@ -22,17 +22,14 @@ public class PrescriptionController {
 
     private final PrescriptionService service;
 
-    // TODO: organizationId باید از SecurityContext (JWT token) گرفته شود
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a new prescription with medication items")
-    public ApiResponse<PrescriptionResponse> create(
-            @Valid @RequestBody CreatePrescriptionRequest request,
-            @RequestHeader("X-Organization-Id") UUID organizationId) {
+    public ApiResponse<PrescriptionResponse> create(@Valid @RequestBody CreatePrescriptionRequest request) {
         return ApiResponse.<PrescriptionResponse>builder()
                 .success(true)
                 .message("Prescription created")
-                .data(service.create(request, organizationId))
+                .data(service.create(request))
                 .build();
     }
 

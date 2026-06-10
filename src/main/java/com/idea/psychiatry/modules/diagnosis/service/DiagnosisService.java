@@ -1,6 +1,7 @@
 package com.idea.psychiatry.modules.diagnosis.service;
 
 
+import com.idea.psychiatry.modules.auth.security.CurrentUser;
 import com.idea.psychiatry.modules.diagnosis.dto.CreateDiagnosisRequest;
 import com.idea.psychiatry.modules.diagnosis.dto.DiagnosisResponse;
 import com.idea.psychiatry.modules.diagnosis.dto.UpdateDiagnosisRequest;
@@ -25,17 +26,18 @@ public class DiagnosisService {
     private final DiagnosisMapper mapper;
     private final DiagnosisRules rules;
 
-    public DiagnosisResponse create(CreateDiagnosisRequest request, UUID organizationId) {
+    public DiagnosisResponse create(CreateDiagnosisRequest request) {
         rules.validatePatientFileIsOpen(request.patientFileId());
         rules.validateEncounterIsActive(request.encounterId());
         rules.validateNoDuplicateActiveCode(
                 request.patientFileId(),
                 request.code(),
-                diagnosisRepository.existsByPatientFileIdAndCode(request.patientFileId(), request.code())
+                diagnosisRepository.existsByPatientFileIdAndCode(
+                        request.patientFileId(), request.code())
         );
 
         Diagnosis diagnosis = new Diagnosis();
-        diagnosis.setOrganizationId(organizationId);
+        diagnosis.setOrganizationId(CurrentUser.getOrganizationId());
         diagnosis.setPatientFileId(request.patientFileId());
         diagnosis.setEncounterId(request.encounterId());
         diagnosis.setCode(request.code().toUpperCase().trim());
@@ -48,7 +50,9 @@ public class DiagnosisService {
     }
 
     public DiagnosisResponse getById(UUID diagnosisId) {
-        return mapper.toResponse(findOrThrow(diagnosisId));
+        Diagnosis diagnosis = findOrThrow(diagnosisId);
+        CurrentUser.requireSameOrganization(diagnosis.getOrganizationId());
+        return mapper.toResponse(diagnosis);
     }
 
     public List<DiagnosisResponse> getByEncounter(UUID encounterId) {
@@ -71,21 +75,18 @@ public class DiagnosisService {
 
     public DiagnosisResponse update(UUID diagnosisId, UpdateDiagnosisRequest request) {
         Diagnosis diagnosis = findOrThrow(diagnosisId);
-
+        CurrentUser.requireSameOrganization(diagnosis.getOrganizationId());
         rules.validateStatusTransition(diagnosis.getStatus(), request.status());
 
-        if (request.status() != null) {
-            diagnosis.setStatus(request.status());
-        }
-        if (request.description() != null) {
-            diagnosis.setDescription(request.description());
-        }
+        if (request.status() != null)      diagnosis.setStatus(request.status());
+        if (request.description() != null) diagnosis.setDescription(request.description());
 
         return mapper.toResponse(diagnosisRepository.save(diagnosis));
     }
 
     public DiagnosisResponse resolve(UUID diagnosisId) {
         Diagnosis diagnosis = findOrThrow(diagnosisId);
+        CurrentUser.requireSameOrganization(diagnosis.getOrganizationId());
         rules.validateStatusTransition(diagnosis.getStatus(), DiagnosisStatus.RESOLVED);
         diagnosis.setStatus(DiagnosisStatus.RESOLVED);
         return mapper.toResponse(diagnosisRepository.save(diagnosis));
@@ -93,6 +94,7 @@ public class DiagnosisService {
 
     public DiagnosisResponse ruleOut(UUID diagnosisId) {
         Diagnosis diagnosis = findOrThrow(diagnosisId);
+        CurrentUser.requireSameOrganization(diagnosis.getOrganizationId());
         rules.validateStatusTransition(diagnosis.getStatus(), DiagnosisStatus.RULED_OUT);
         diagnosis.setStatus(DiagnosisStatus.RULED_OUT);
         return mapper.toResponse(diagnosisRepository.save(diagnosis));

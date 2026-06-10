@@ -1,30 +1,68 @@
 package com.idea.psychiatry.modules.appointment.rules;
 
-import com.idea.psychiatry.modules.appointment.entity.Appointment;
-import com.idea.psychiatry.modules.appointment.enums.AppointmentStatus;
 import com.idea.psychiatry.shared.exception.BusinessException;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
+
 @Component
 public class AppointmentRules {
+
     /**
-     * قوانین مربوط به نوبت‌دهی (Appointment)
-     * <p>
-     * این کلاس وضعیت نوبت‌ها را قبل از تبدیل به Encounter بررسی می‌کند.
-     * <p>
-     * قوانین:
-     * - فقط نوبت‌های تایید شده (CONFIRMED) می‌توانند تبدیل به Encounter شوند
-     * - نوبت نامعتبر یا لغوشده قابل استفاده نیست
+     * endTime باید بعد از startTime باشد.
      */
-
-    public void validateForEncounter(Appointment appointment) {
-
-        if (appointment == null) {
-            throw new BusinessException("Appointment required for encounter creation");
+    public void validateTimeRange(Instant startTime, Instant endTime) {
+        if (!endTime.isAfter(startTime)) {
+            throw new BusinessException("endTime must be after startTime");
         }
+    }
 
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new BusinessException("Appointment must be CONFIRMED");
+    /**
+     * نوبت نباید در گذشته باشد.
+     */
+    public void validateNotInPast(Instant startTime) {
+        if (startTime.isBefore(Instant.now())) {
+            throw new BusinessException("Appointment startTime cannot be in the past");
+        }
+    }
+
+    /**
+     * پزشک نباید در همان بازه زمانی نوبت دیگری داشته باشد.
+     */
+    public void validateNoOverlap(boolean hasOverlap, String doctorId) {
+        if (hasOverlap) {
+            throw new BusinessException(
+                    "Doctor already has an appointment in the requested time range: " + doctorId
+            );
+        }
+    }
+
+    /**
+     * قوانین انتقال وضعیت Appointment:
+     * SCHEDULED  → CONFIRMED, CANCELLED
+     * CONFIRMED  → COMPLETED, CANCELLED, NO_SHOW
+     * COMPLETED  → (نهایی)
+     * CANCELLED  → (نهایی)
+     * NO_SHOW    → (نهایی)
+     */
+    public void validateStatusTransition(
+            com.idea.psychiatry.modules.appointment.enums.AppointmentStatus current,
+            com.idea.psychiatry.modules.appointment.enums.AppointmentStatus next) {
+        if (next == null) return;
+
+        boolean valid = switch (current) {
+            case SCHEDULED -> next == com.idea.psychiatry.modules.appointment.enums.AppointmentStatus.CONFIRMED
+                    || next == com.idea.psychiatry.modules.appointment.enums.AppointmentStatus.CANCELLED;
+            case CONFIRMED -> next == com.idea.psychiatry.modules.appointment.enums.AppointmentStatus.COMPLETED
+                    || next == com.idea.psychiatry.modules.appointment.enums.AppointmentStatus.CANCELLED
+                    || next == com.idea.psychiatry.modules.appointment.enums.AppointmentStatus.NO_SHOW;
+            case COMPLETED, CANCELLED, NO_SHOW -> false;
+        };
+
+        if (!valid) {
+            throw new BusinessException(
+                    "Invalid status transition: " + current + " → " + next
+            );
         }
     }
 }

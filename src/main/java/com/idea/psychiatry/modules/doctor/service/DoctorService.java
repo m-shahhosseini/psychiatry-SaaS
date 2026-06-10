@@ -1,18 +1,18 @@
 package com.idea.psychiatry.modules.doctor.service;
 
 
+import com.idea.psychiatry.modules.auth.security.CurrentUser;
 import com.idea.psychiatry.modules.doctor.dto.CreateDoctorRequest;
 import com.idea.psychiatry.modules.doctor.dto.DoctorResponse;
 import com.idea.psychiatry.modules.doctor.dto.UpdateDoctorRequest;
 import com.idea.psychiatry.modules.doctor.entity.Doctor;
 import com.idea.psychiatry.modules.doctor.mapper.DoctorMapper;
 import com.idea.psychiatry.modules.doctor.repository.DoctorRepository;
-import com.idea.psychiatry.modules.user.entity.User;
-import com.idea.psychiatry.shared.exception.BusinessException;
 import com.idea.psychiatry.shared.exception.NotFoundException;
-import jakarta.transaction.Transactional;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,52 +21,54 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DoctorService {
 
-
     private final DoctorRepository repository;
     private final DoctorMapper mapper;
 
     public DoctorResponse create(CreateDoctorRequest request) {
-
         Doctor doctor = mapper.toEntity(request);
-
-        // TODO: replace with current user's organizationId
-        doctor.setOrganizationId(UUID.fromString("11111111-1111-1111-1111-111111111111"));
+        doctor.setOrganizationId(CurrentUser.getOrganizationId());
         return mapper.toResponse(repository.save(doctor));
     }
 
     public DoctorResponse getById(UUID id) {
-
-        Doctor doctor = repository.findById(id).orElseThrow(() -> new BusinessException("Doctor not found"));
-
+        Doctor doctor = findOrThrow(id);
+        CurrentUser.requireSameOrganization(doctor.getOrganizationId());
         return mapper.toResponse(doctor);
     }
 
     public List<DoctorResponse> getAllActive() {
-        return mapper.toResponseList(repository.findByActiveTrue());
+        return mapper.toResponseList(
+                repository.findByOrganizationIdAndActiveTrue(CurrentUser.getOrganizationId())
+        );
     }
 
     @Transactional
     public DoctorResponse update(UUID doctorId, UpdateDoctorRequest request) {
+        Doctor doctor = findOrThrow(doctorId);
+        CurrentUser.requireSameOrganization(doctor.getOrganizationId());
 
-        Doctor doctor = repository.findById(doctorId).orElseThrow(() -> new NotFoundException("Doctor not found"));
-
-        doctor.setFullName(request.fullName());
-        doctor.setSpecialization(request.specialization());
-        doctor.setMedicalLicenseNumber(request.medicalLicenseNumber());
-        doctor.setPhoneNumber(request.phoneNumber());
-        doctor.setEmail(request.email());
+        if (request.fullName() != null) doctor.setFullName(request.fullName());
+        if (request.specialization() != null) doctor.setSpecialization(request.specialization());
+        if (request.medicalLicenseNumber() != null) doctor.setMedicalLicenseNumber(request.medicalLicenseNumber());
+        if (request.phoneNumber() != null) doctor.setPhoneNumber(request.phoneNumber());
+        if (request.email() != null) doctor.setEmail(request.email());
 
         return mapper.toResponse(repository.save(doctor));
     }
 
     @Transactional
     public void deactivate(UUID doctorId) {
-
-        Doctor doctor = repository.findById(doctorId)
-                .orElseThrow(() -> new NotFoundException("Doctor not found"));
-
+        Doctor doctor = findOrThrow(doctorId);
+        CurrentUser.requireSameOrganization(doctor.getOrganizationId());
         doctor.setActive(false);
-
         repository.save(doctor);
     }
+
+    // ── private ──────────────────────────────
+
+    private Doctor findOrThrow(UUID id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Doctor not found: " + id));
+    }
 }
+

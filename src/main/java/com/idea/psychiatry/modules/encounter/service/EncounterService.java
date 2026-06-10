@@ -1,6 +1,6 @@
 package com.idea.psychiatry.modules.encounter.service;
 
-
+import com.idea.psychiatry.modules.auth.security.CurrentUser;
 import com.idea.psychiatry.modules.encounter.dto.CreateEncounterRequest;
 import com.idea.psychiatry.modules.encounter.dto.EncounterResponse;
 import com.idea.psychiatry.modules.encounter.dto.UpdateEncounterRequest;
@@ -13,7 +13,6 @@ import com.idea.psychiatry.shared.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +28,7 @@ public class EncounterService {
         rules.validatePatientFileIsOpen(request.patientFileId());
 
         Encounter encounter = new Encounter();
+        encounter.setOrganizationId(CurrentUser.getOrganizationId());
         encounter.setPatientFileId(request.patientFileId());
         encounter.setClinicianId(request.clinicianId());
         encounter.setType(request.type());
@@ -41,38 +41,38 @@ public class EncounterService {
     }
 
     public EncounterResponse getById(UUID encounterId) {
-        return mapper.toResponse(findOrThrow(encounterId));
+        Encounter encounter = findOrThrow(encounterId);
+        CurrentUser.requireSameOrganization(encounter.getOrganizationId());
+        return mapper.toResponse(encounter);
     }
 
     public List<EncounterResponse> getByPatientFile(UUID patientFileId) {
-        return mapper.toResponseList(encounterRepository.findByPatientFileId(patientFileId));
+        return mapper.toResponseList(
+                encounterRepository.findByPatientFileId(patientFileId)
+        );
     }
 
-
-    public List<EncounterResponse> getByOrganization(UUID organizationId) {
-        return mapper.toResponseList(encounterRepository.findAllByOrganizationId(organizationId));
+    public List<EncounterResponse> getByOrganization() {
+        return mapper.toResponseList(
+                encounterRepository.findAllByOrganizationId(CurrentUser.getOrganizationId())
+        );
     }
 
     public EncounterResponse update(UUID encounterId, UpdateEncounterRequest request) {
         Encounter encounter = findOrThrow(encounterId);
-
+        CurrentUser.requireSameOrganization(encounter.getOrganizationId());
         rules.validateStatusTransition(encounter.getStatus(), request.status());
 
-        if (request.status() != null) {
-            encounter.setStatus(request.status());
-        }
-        if (request.chiefComplaint() != null) {
-            encounter.setChiefComplaint(request.chiefComplaint());
-        }
-        if (request.notes() != null) {
-            encounter.setNotes(request.notes());
-        }
+        if (request.status() != null)         encounter.setStatus(request.status());
+        if (request.chiefComplaint() != null)  encounter.setChiefComplaint(request.chiefComplaint());
+        if (request.notes() != null)           encounter.setNotes(request.notes());
 
         return mapper.toResponse(encounterRepository.save(encounter));
     }
 
     public EncounterResponse complete(UUID encounterId) {
         Encounter encounter = findOrThrow(encounterId);
+        CurrentUser.requireSameOrganization(encounter.getOrganizationId());
         rules.validateStatusTransition(encounter.getStatus(), EncounterStatus.COMPLETED);
         encounter.setStatus(EncounterStatus.COMPLETED);
         return mapper.toResponse(encounterRepository.save(encounter));
@@ -80,12 +80,16 @@ public class EncounterService {
 
     public EncounterResponse cancel(UUID encounterId) {
         Encounter encounter = findOrThrow(encounterId);
+        CurrentUser.requireSameOrganization(encounter.getOrganizationId());
         rules.validateStatusTransition(encounter.getStatus(), EncounterStatus.CANCELLED);
         encounter.setStatus(EncounterStatus.CANCELLED);
         return mapper.toResponse(encounterRepository.save(encounter));
     }
 
+    // ── private ──────────────────────────────
+
     private Encounter findOrThrow(UUID id) {
-        return encounterRepository.findById(id).orElseThrow(() -> new NotFoundException("Encounter not found: " + id));
+        return encounterRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Encounter not found: " + id));
     }
 }
