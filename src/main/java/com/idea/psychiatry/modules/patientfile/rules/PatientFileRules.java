@@ -21,8 +21,7 @@ public class PatientFileRules {
      * بیمار باید وجود داشته باشد و active باشد تا پرونده باز شود.
      */
     public void validatePatientExists(UUID patientId) {
-        var patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new NotFoundException("Patient not found: " + patientId));
+        var patient = patientRepository.findById(patientId).orElseThrow(() -> new NotFoundException("Patient not found: " + patientId));
 
         if (!patient.isActive()) {
             throw new BusinessException("Cannot open file: patient is not active");
@@ -34,9 +33,7 @@ public class PatientFileRules {
      */
     public void validateNoOpenFileExists(UUID patientId, boolean hasOpenFile) {
         if (hasOpenFile) {
-            throw new BusinessException(
-                    "Patient already has an OPEN file. Close the existing file before opening a new one."
-            );
+            throw new BusinessException("Patient already has an OPEN file. Close the existing file before opening a new one.");
         }
     }
 
@@ -45,9 +42,7 @@ public class PatientFileRules {
      */
     public void validateFileIsOpen(PatientFile file) {
         if (file.getStatus() != PatientFileStatus.OPEN) {
-            throw new BusinessException(
-                    "Cannot perform operation on a " + file.getStatus() + " patient file"
-            );
+            throw new BusinessException("Cannot perform operation on a " + file.getStatus() + " patient file");
         }
     }
 
@@ -67,9 +62,7 @@ public class PatientFileRules {
         };
 
         if (!valid) {
-            throw new BusinessException(
-                    "Invalid status transition: " + current + " → " + next
-            );
+            throw new BusinessException("Invalid status transition: " + current + " → " + next);
         }
     }
 

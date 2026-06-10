@@ -6,7 +6,7 @@ import com.idea.psychiatry.shared.exception.BusinessException;
 import org.springframework.stereotype.Component;
 
 @Component
-public class PatientFileRules {
+public class PatientRules {
 
 
     /**

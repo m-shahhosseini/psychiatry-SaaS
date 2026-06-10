@@ -23,12 +23,11 @@ public class PatientFileController {
 
     private final PatientFileService service;
 
-    // TODO: organizationId باید از SecurityContext (JWT token) گرفته شود
-    //       فعلاً به‌عنوان header پاس می‌شود تا Security پیاده‌سازی شود
+
     @PostMapping
     @Operation(summary = "Open a new patient file")
-    public ApiResponse<PatientFileResponse> create(@Valid @RequestBody CreatePatientFileRequest request, @RequestHeader("X-Organization-Id") UUID organizationId) {
-        return ApiResponse.<PatientFileResponse>builder().success(true).message("Patient file opened").data(service.create(request, organizationId)).build();
+    public ApiResponse<PatientFileResponse> create(@Valid @RequestBody CreatePatientFileRequest request) {
+        return ApiResponse.<PatientFileResponse>builder().success(true).message("Patient file opened").data(service.create(request)).build();
     }
 
     @GetMapping("/{patientFileId}")

@@ -1,6 +1,7 @@
 package com.idea.psychiatry.modules.patientfile.service;
 
 
+import com.idea.psychiatry.modules.auth.security.CurrentUser;
 import com.idea.psychiatry.modules.patientfile.entity.PatientFile;
 import com.idea.psychiatry.modules.patientfile.enums.PatientFileStatus;
 import com.idea.psychiatry.modules.patientfile.repository.PatientFileRepository;
@@ -34,9 +35,15 @@ public class PatientFileService {
     private final PatientFileMapper mapper;
     private final PatientFileRules rules;
 
-    public PatientFileResponse create(CreatePatientFileRequest request, UUID organizationId) {
+    public PatientFileResponse create(CreatePatientFileRequest request) {
+        UUID organizationId = CurrentUser.getOrganizationId();
+
         rules.validatePatientExists(request.patientId());
-        rules.validateNoOpenFileExists(request.patientId(), patientFileRepository.existsByPatientIdAndStatus(request.patientId(), PatientFileStatus.OPEN));
+        rules.validateNoOpenFileExists(
+                request.patientId(),
+                patientFileRepository.existsByPatientIdAndStatus(
+                        request.patientId(), PatientFileStatus.OPEN)
+        );
 
         PatientFile file = new PatientFile();
         file.setPatientId(request.patientId());
@@ -50,26 +57,33 @@ public class PatientFileService {
     }
 
     public PatientFileResponse getById(UUID patientFileId) {
-        return mapper.toResponse(findOrThrow(patientFileId));
+        PatientFile file = findOrThrow(patientFileId);
+        CurrentUser.requireSameOrganization(file.getOrganizationId());
+        return mapper.toResponse(file);
     }
 
     public PatientFileResponse getByFileNumber(String fileNumber) {
-        PatientFile file = patientFileRepository.findByFileNumber(fileNumber).orElseThrow(() -> new NotFoundException("PatientFile not found: " + fileNumber));
+        PatientFile file = patientFileRepository.findByFileNumber(fileNumber)
+                .orElseThrow(() -> new NotFoundException("PatientFile not found: " + fileNumber));
+        CurrentUser.requireSameOrganization(file.getOrganizationId());
         return mapper.toResponse(file);
     }
 
     public List<PatientFileResponse> getByPatient(UUID patientId) {
-        return mapper.toResponseList(patientFileRepository.findByPatientId(patientId));
+        return mapper.toResponseList(
+                patientFileRepository.findByPatientId(patientId)
+        );
     }
 
-    public List<PatientFileResponse> getByOrganization(UUID organizationId) {
+    public List<PatientFileResponse> getByOrganization() {
         return mapper.toResponseList(
-                patientFileRepository.findAllByOrganizationId(organizationId)
+                patientFileRepository.findAllByOrganizationId(CurrentUser.getOrganizationId())
         );
     }
 
     public PatientFileResponse update(UUID patientFileId, UpdatePatientFileRequest request) {
         PatientFile file = findOrThrow(patientFileId);
+        CurrentUser.requireSameOrganization(file.getOrganizationId());
         rules.validateFileIsOpen(file);
 
         if (request.notes() != null) {
@@ -81,6 +95,7 @@ public class PatientFileService {
 
     public PatientFileResponse close(UUID patientFileId) {
         PatientFile file = findOrThrow(patientFileId);
+        CurrentUser.requireSameOrganization(file.getOrganizationId());
         rules.validateStatusTransition(file.getStatus(), PatientFileStatus.CLOSED);
         file.setStatus(PatientFileStatus.CLOSED);
         file.setClosedDate(LocalDate.now());
@@ -89,11 +104,12 @@ public class PatientFileService {
 
     public PatientFileResponse reopen(UUID patientFileId) {
         PatientFile file = findOrThrow(patientFileId);
+        CurrentUser.requireSameOrganization(file.getOrganizationId());
         rules.validateStatusTransition(file.getStatus(), PatientFileStatus.OPEN);
-        // بررسی اینکه بیمار پرونده OPEN دیگری نداشته باشد
         rules.validateNoOpenFileExists(
                 file.getPatientId(),
-                patientFileRepository.existsByPatientIdAndStatus(file.getPatientId(), PatientFileStatus.OPEN)
+                patientFileRepository.existsByPatientIdAndStatus(
+                        file.getPatientId(), PatientFileStatus.OPEN)
         );
         file.setStatus(PatientFileStatus.OPEN);
         file.setClosedDate(null);
@@ -102,6 +118,7 @@ public class PatientFileService {
 
     public PatientFileResponse archive(UUID patientFileId) {
         PatientFile file = findOrThrow(patientFileId);
+        CurrentUser.requireSameOrganization(file.getOrganizationId());
         rules.validateStatusTransition(file.getStatus(), PatientFileStatus.ARCHIVED);
         file.setStatus(PatientFileStatus.ARCHIVED);
         if (file.getClosedDate() == null) {
@@ -109,6 +126,8 @@ public class PatientFileService {
         }
         return mapper.toResponse(patientFileRepository.save(file));
     }
+
+    // ── private ──────────────────────────────
 
     private PatientFile findOrThrow(UUID id) {
         return patientFileRepository.findById(id)
@@ -123,6 +142,4 @@ public class PatientFileService {
         long count = patientFileRepository.countByOrganizationId(organizationId) + 1;
         return String.format("PF-%d-%06d", Year.now().getValue(), count);
     }
-
-
 }

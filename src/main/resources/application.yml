@@ -8,3 +8,9 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
+app:
+  jwt:
+    secret: your-very-long-secret-key-at-least-256-bits-for-hs256-algorithm-replace-in-production
+    expiration-ms: 86400000       # 24 hours
+    refresh-expiration-ms: 604800000  # 7 days

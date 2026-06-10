@@ -1,7 +1,7 @@
 package com.idea.psychiatry.modules.user.entity;
 
 
-import com.idea.psychiatry.modules.user.enumaration.UserRole;
+import com.idea.psychiatry.modules.user.enums.UserRole;
 import com.idea.psychiatry.shared.base.AuditableEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -10,7 +10,12 @@ import lombok.Setter;
 import java.util.UUID;
 
 @Entity
-@Table(name = "users")
+@Table(
+        name = "users",
+        indexes = {
+                @Index(name = "idx_user_org", columnList = "organization_id")
+        }
+)
 @Getter
 @Setter
 public class User extends AuditableEntity {
@@ -28,7 +33,7 @@ public class User extends AuditableEntity {
     private String email;
 
     @Column(nullable = false)
-    private String password;
+    private String passwordHash;
 
     @Enumerated(EnumType.STRING)
     private UserRole role;
